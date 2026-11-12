@@ -13,6 +13,19 @@ reimplementation of Cheat Engine).
 
 ---
 
+## Unreleased: Simplified Chinese interface
+
+The GUI can now be translated and ships with a Simplified Chinese (zh_CN)
+catalogue: every menu, dialog, label and message is translatable, Settings has a
+Language page (follow the system, English, 简体中文), and the catalogue is
+embedded in the binaries. A `.qm` file beside the executable or under
+`translations/` overrides the built-in catalogue. English remains the source
+language, so nothing changes without a catalogue. The terminal (`cescan`),
+messages from the Qt-free core library, and the tutorial games stay in English.
+See `docs/I18N.md`.
+
+---
+
 ## v1.1.0: AI Assistant, tutorial games, and a deep correctness and security pass (2026-10-21)
 
 An AI Assistant panel and an MCP server (`cescan mcp`) that let a model find
