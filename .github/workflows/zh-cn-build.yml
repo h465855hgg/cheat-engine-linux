@@ -1,0 +1,103 @@
+name: zh-cn packages
+
+# Fork-only helper: build the Chinese (zh_CN) .deb and AppImage without the
+# upstream compatibility gates, so the translation can be installed and tried
+# before the pull request lands. This file is not part of the pull request.
+
+on:
+  push:
+    branches: [ci-zh-cn]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
+            build-essential \
+            gcc-multilib \
+            cmake \
+            ninja-build \
+            qt6-base-dev \
+            qt6-tools-dev \
+            qt6-l10n-tools \
+            libcapstone-dev \
+            zlib1g-dev \
+            libdw-dev \
+            libasound2-dev \
+            libsoundtouch-dev \
+            libfuse2t64 \
+            ca-certificates \
+            file \
+            wget \
+            imagemagick
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v6
+        with:
+          path: build/_deps
+          key: zh-cn-deps-${{ runner.os }}-v1
+          restore-keys: |
+            zh-cn-deps-${{ runner.os }}-
+
+      - name: Configure (Release)
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCECORE_REQUIRE_NATIVE_CALL_I386=ON \
+            -DCMAKE_INSTALL_PREFIX=/usr
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Check the translation catalogue
+        run: python3 tools/check-translations.py
+
+      - name: Verify the binary starts in Chinese from the embedded catalogue
+        run: |
+          QT_QPA_PLATFORM=offscreen LANG=zh_CN.UTF-8 CE_LOG=debug \
+            CE_SCREENSHOT="$PWD/build/zh-main.png" timeout 60 ./build/cheatengine \
+            2>&1 | tee build/zh-startup.log
+          grep -q 'interface language zh_CN (catalogue: built-in)' build/zh-startup.log
+
+      - name: Run the GUI lifecycle smoke test
+        run: |
+          QT_QPA_PLATFORM=offscreen ./build/gui_lifecycle_smoke
+
+      - name: Build .deb package
+        run: (cd build && cpack -G DEB)
+
+      - name: Build AppImage
+        run: |
+          CECORE_BUILD_JOBS="$(nproc)" bash packaging/build-appimage.sh
+          file build/CheatEngine-*-x86_64.AppImage
+
+      - name: Checksums
+        run: |
+          cd build
+          for f in CheatEngine-*-x86_64.AppImage cheat-engine-linux_*_amd64.deb; do
+            sha256sum "$f" > "$f.sha256"
+          done
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: cheat-engine-linux-zh-cn
+          path: |
+            build/CheatEngine-*-x86_64.AppImage
+            build/CheatEngine-*-x86_64.AppImage.sha256
+            build/cheat-engine-linux_*_amd64.deb
+            build/cheat-engine-linux_*_amd64.deb.sha256
+            build/zh-main.png
+            build/zh-startup.log
+          if-no-files-found: error
