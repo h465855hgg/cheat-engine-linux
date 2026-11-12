@@ -37,6 +37,7 @@ jobs:
             libasound2-dev \
             libsoundtouch-dev \
             libfuse2t64 \
+            fonts-noto-cjk \
             ca-certificates \
             file \
             wget \
